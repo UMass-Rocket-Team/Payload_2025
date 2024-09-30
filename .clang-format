@@ -7,4 +7,7 @@ Language: Cpp
 DerivePointerAlignment: false
 PointerAlignment: Left
 AlignAfterOpenBracket: AlwaysBreak
+UseTab: Always
+IndentWidth: 4
+TabWidth: 4
 ...
