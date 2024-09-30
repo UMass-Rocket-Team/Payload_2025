@@ -3,6 +3,7 @@
 **Compile test code**
 
 ```bash
+morse/tests> mkdir build
 morse/tests> cd ./build/
 morse/tests/build> cmake ..
 morse/tests/build> cmake --build .
