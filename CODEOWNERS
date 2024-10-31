@@ -1,0 +1,9 @@
+# Default Code Owners
+
+-       @belgianlion @ZegesMenden @ravenspired
+
+# Owners
+
+_.c @belgianlion @ZegesMenden @ravenspired
+_.h @belgianlion @ZegesMenden @ravenspired
+_.py @belgianlion @ZegesMenden @ravenspired
