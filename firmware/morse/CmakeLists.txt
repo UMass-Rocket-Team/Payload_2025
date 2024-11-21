@@ -1,0 +1,9 @@
+cmake_minimum_required(VERSION 3.10)
+
+project(morse)
+
+add_library(morse ${CMAKE_CURRENT_SOURCE_DIR}/morse.c, ${CMAKE_CURRENT_SOURCE_DIR}/morse.h)
+
+target_sources(morse PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/morse.c)
+
+target_include_directories(morse PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
