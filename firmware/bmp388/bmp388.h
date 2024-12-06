@@ -62,6 +62,7 @@ typedef enum {
  */
 typedef struct bmp388_handle_s
 {
+	uint8_t use_spi;                                                                    /**< flag to use SPI address */
     uint8_t iic_addr;                                                                   /**< iic device address */
     uint8_t inited;                                                                     /**< inited flag */
     uint8_t iic_spi;                                                                    /**< iic spi interface */
@@ -81,3 +82,5 @@ typedef struct bmp388_handle_s
     int8_t p11;                                                                         /**< p11 register */
     int64_t t_lin;                                                                      /**< t_lin register */
 } bmp388_handle_t;
+
+uint8_t fun();
