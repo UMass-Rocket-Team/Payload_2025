@@ -64,8 +64,6 @@ typedef struct bmp388_handle_s
 {
 	uint8_t use_spi;                                                                    /**< flag to use SPI address */
     uint8_t iic_addr;                                                                   /**< iic device address */
-    uint8_t inited;                                                                     /**< inited flag */
-    uint8_t iic_spi;                                                                    /**< iic spi interface */
     uint16_t t1;                                                                        /**< t1 register */
     uint16_t t2;                                                                        /**< t2 register */
     int8_t t3;                                                                          /**< t3 register */
@@ -80,7 +78,10 @@ typedef struct bmp388_handle_s
     int16_t p9;                                                                         /**< p9 register */
     int8_t p10;                                                                         /**< p10 register */
     int8_t p11;                                                                         /**< p11 register */
-    int64_t t_lin;                                                                      /**< t_lin register */
+    int64_t t;                                                                      	/**< t register */
 } bmp388_handle_t;
 
-uint8_t fun();
+uint8_t bmp388_init(bmp388_handle_t *handle);
+
+uint8_t bmp388_read_temperature_pressure(bmp388_handle_s *handle, uint32_t *temp_raw, float *temp_c,
+										 uint32_t *pressure_raw, float *pressure_pa);
