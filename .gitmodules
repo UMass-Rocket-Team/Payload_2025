@@ -4,6 +4,3 @@
 [submodule "third-party/AudioFile"]
 	path = third-party/AudioFile
 	url = https://github.com/adamstark/AudioFile
-[submodule "third-party/pico-sdk"]
-	path = third-party/pico-sdk
-	url = git@github.com:raspberrypi/pico-sdk.git

@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.13)
 
-# set(PICO_BOARD pico2)
-set(PICOTOOL_FETCH_FROM_GIT_PATH ${CMAKE_CURRENT_LIST_DIR}/../../third-party/picotool)
-include(${CMAKE_CURRENT_LIST_DIR}/../../third-party/pico-sdk/pico_sdk_init.cmake)
+set(PICO_SDK_FETCH_FROM_GIT on)
+
+include(${CMAKE_CURRENT_LIST_DIR}/pico_sdk_import.cmake)
 
 project(demo)
 
