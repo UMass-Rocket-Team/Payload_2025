@@ -2,14 +2,19 @@
 
 i2c_inst_t* I2C_PORT = i2c0;
 
-static uint8_t i2c_read(uint8_t device_addr, uint8_t reg, uint8_t* data, uint16_t len) {
-	if (i2c_write_blocking(I2C_PORT, device_addr, &reg, 1, true) < 0) {
+uint8_t i2c_read(uint8_t device_addr, uint8_t reg, uint8_t* data, uint16_t len) {
+	int ret = i2c_write_timeout_us(I2C_PORT, device_addr, &reg, 1, true, 1000);
+	if (ret < 0) {
+		printf("Write failed! \n");
 		return 1;
 	}
 
-	if (i2c_read_blocking(I2C_PORT, device_addr, data, len, false) < 0) {
+	ret = i2c_read_timeout_us(I2C_PORT, device_addr, data, len, false, 1000);
+	if (ret < 0) {
+		printf("Read failed! \n");
 		return 1;
 	}
+	// printf("Read %d bytes! \n", ret);
 	return 0;
 }
 
@@ -27,52 +32,67 @@ static uint8_t i2c_write(uint8_t device_addr, uint8_t reg, uint8_t *buf, uint8_t
 
 static float bmp388_compensate_temperature(bmp388_handle_t *handle, uint32_t data)
 { 
-	float partial_1, partial_2;
+    uint64_t partial_data1;
+    uint64_t partial_data2;
+    uint64_t partial_data3;
+    int64_t partial_data4;
+    int64_t partial_data5;
+    int64_t partial_data6;
+    int64_t comp_temp;
 
-    partial_1 = (float)(data - handle->t1);
-    partial_2 = (float)(partial_1 * handle->t2);
-
-    float temp = partial_2 + (partial_1 * partial_1) * handle->t3;
-	handle->t = temp;
-	return temp;
+    /* calculate compensate temperature */
+    partial_data1 = (uint64_t)(data - (256 * (uint64_t)(handle->t1)));
+    partial_data2 = (uint64_t)(handle->t2 * partial_data1);
+    partial_data3 = (uint64_t)(partial_data1 * partial_data1);
+    partial_data4 = (int64_t)(((int64_t)partial_data3) * ((int64_t)handle->t3));
+    partial_data5 = ((int64_t)(((int64_t)partial_data2) * 262144) + (int64_t)partial_data4);
+    partial_data6 = (int64_t)(((int64_t)partial_data5) / 4294967296U);
+    handle->t = partial_data6;
+    comp_temp = (int64_t)((partial_data6 * 25)  / 16384);
+    
+    return comp_temp;
 }
 
-static int64_t bmp388_compensate_pressure(bmp388_handle_t *handle, uint32_t pres_uncomp)
-{
-    float partial_1, partial_2, partial_3, partial_4;
-    float partial_out_1, partial_out_2;
+static int64_t bmp388_compensate_pressure(bmp388_handle_t *handle, uint32_t data){
+    int64_t partial_data1;
+    int64_t partial_data2;
+    int64_t partial_data3;
+    int64_t partial_data4;
+    int64_t partial_data5;
+    int64_t partial_data6;
+    int64_t offset;
+    int64_t sensitivity;
+    uint64_t comp_press;
 
-    float pres_uncomp_flt = (float)pres_uncomp;
-    float pres_uncomp_flt_2 = pres_uncomp_flt * pres_uncomp_flt;
-
-	float temp = handle->t;
-    float temp_squared = temp * temp;
-    float temp_cubed = temp_squared * temp;
-
-    partial_1 = handle->p6 * temp;
-    partial_2 = handle->p7 * temp_squared;
-    partial_3 = handle->p8 * temp_cubed;
-    partial_out_1 = handle->p5 + partial_1 + partial_2 + partial_3;
-
-    partial_1 = handle->p2 * temp;
-    partial_2 = handle->p3 * temp_squared;
-    partial_3 = handle->p4 * temp_cubed;
-
-    partial_out_2 = pres_uncomp_flt * (handle->p1 + partial_1 + partial_2 + partial_3);
-
-    partial_1 = pres_uncomp_flt_2;
-    partial_2 = handle->p9 + handle->p10 * temp;
-    partial_3 = partial_1 * partial_2;
-
-    partial_4 = partial_3 + (pres_uncomp_flt_2 * pres_uncomp_flt) * handle->p11;
-    float pres = partial_1 + partial_2 + partial_4;
-
-	return pres;
+    /* calculate compensate pressure */
+    partial_data1 = handle->t * handle->t;
+    partial_data2 = partial_data1 / 64;
+    partial_data3 = (partial_data2 * handle->t) / 256;
+    partial_data4 = (handle->p8 * partial_data3) / 32;
+    partial_data5 = (handle->p7 * partial_data1) * 16;
+    partial_data6 = (handle->p6 * handle->t) * 4194304;
+    offset = (int64_t)((int64_t)(handle->p5) * (int64_t)140737488355328U) + partial_data4 + partial_data5 + partial_data6;
+    partial_data2 = (((int64_t)handle->p4) * partial_data3) / 32;
+    partial_data4 = (handle->p3 * partial_data1) * 4;
+    partial_data5 = ((int64_t)(handle->p2) - 16384) * ((int64_t)handle->t) * 2097152;
+    sensitivity = (((int64_t)(handle->p1) - 16384) * (int64_t)70368744177664U) + partial_data2 + partial_data4 + partial_data5;
+    partial_data1 = (sensitivity / 16777216) * data;
+    partial_data2 = (int64_t)(handle->p10) * (int64_t)(handle->t);
+    partial_data3 = partial_data2 + (65536 * (int64_t)(handle->p9));
+    partial_data4 = (partial_data3 * data) / 8192;
+    partial_data5 = (partial_data4 * data) / 512;
+    partial_data6 = (int64_t)((uint64_t)data * (uint64_t)data);
+    partial_data2 = ((int64_t)(handle->p11) * (int64_t)(partial_data6)) / 65536;
+    partial_data3 = (partial_data2 * data) / 128;
+    partial_data4 = (offset / 4) + partial_data1 + partial_data5 + partial_data3;
+    comp_press = (((uint64_t)partial_data4 * 25) / (uint64_t)1099511627776U);
+    
+    return comp_press;
 }
 
 static uint8_t bmp388_get_calibration_data(bmp388_handle_s *handle) {
 	uint8_t buf[2];
-	if (i2c_read(handle->iic_addr, BMP388_REG_NVM_PAR_T1_L, buf, 2) == 1) {
+	if (i2c_read(0x77, BMP388_REG_NVM_PAR_T1_L, buf, 2) == 1) {
 		printf("BMP388: Failed to read PAR_T1\n");
 		return 1;
 	}
@@ -165,46 +185,42 @@ uint8_t bmp388_read_temperature_pressure(bmp388_handle_s *handle, uint32_t *temp
 	uint8_t prev;
 	uint8_t buf[3];
 
-	res = i2c_read(handle->iic_addr, BMP388_REG_STATUS, (uint8_t *)&prev, 1);
+	int64_t output;
+	res = i2c_read(handle->iic_addr, BMP388_REG_DATA_3, (uint8_t *)buf, 3);
 	if (res != 0) {
-		printf("BMP388: Failed to get status register\n");
+		printf("BMP388: Failed to read temperature data register\n");
 		return 1;
 	}
-	if (prev & (1 << 6) != 0) {
-		int64_t output;
-		res = i2c_read(handle->iic_addr, BMP388_REG_DATA_3, (uint8_t *)&prev, 3);
-		if (res != 0) {
-			printf("BMP388: Failed to read temperature data register\n");
-			return 1;
-		}
-		*temp_raw = (uint32_t) buf[2] << 16 | (uint32_t) buf[1] << 8 |(uint32_t) buf[0];
-		float comp = bmp388_compensate_temperature(handle, *temp_raw);
-		*temp_c = (float)((double)output/100.0);
-		
-	} else {
-		printf("BMP388: Temperature frame not ready\n");
+	*temp_raw = (uint32_t) buf[2] << 16 | (uint32_t) buf[1] << 8 |(uint32_t) buf[0];
+	output = bmp388_compensate_temperature(handle, *temp_raw);
+	*temp_c = (float)((double)output/100.0);
+	
+	res = i2c_read(handle->iic_addr, BMP388_REG_DATA_0, (uint8_t *)buf, 3);
+	if (res != 0) {
+		printf("BMP388: Failed to read pressure data register\n");
 		return 1;
 	}
-	if (prev & (1 << 5) != 0) {
-		int64_t output;
-		res = i2c_read(handle->iic_addr, BMP388_REG_DATA_0, (uint8_t *)&prev, 3);
-		if (res != 0) {
-			printf("BMP388: Failed to read pressure data register\n");
-			return 1;
-		}
-		*pressure_raw = (uint32_t) buf[2] << 16 | (uint32_t) buf[1] << 8 |(uint32_t) buf[0];
-		float comp = bmp388_compensate_pressure(handle, *pressure_raw);
-		*pressure_pa = (float)((double)output/100.0);
-	} else {
-		printf("BMP388: pressure frame not ready\n");
-		return 1;
-	}
+	*pressure_raw = (uint32_t) buf[2] << 16 | (uint32_t) buf[1] << 8 |(uint32_t) buf[0];
+	output = bmp388_compensate_pressure(handle, *pressure_raw);
+	*pressure_pa = (float)((double)output/100.0);
+
 	return 0;
 }
 
 uint8_t bmp388_init(bmp388_handle_t *handle) {
+	i2c_init(I2C_PORT, 100 * 1000);
+  	gpio_set_function(4, GPIO_FUNC_I2C);
+    gpio_set_function(5, GPIO_FUNC_I2C);
+    gpio_pull_up(4);
+    gpio_pull_up(5);
+
 	if (handle == NULL) {
 		return 1;
+	}
+	uint8_t data = 255;
+	int ret = i2c_write(handle->iic_addr, BMP388_REG_PWR_CTRL, &(data), 1);
+	while(ret != 0) {
+		printf("BMP388: Enabling sensors failed, retrying... \n");
 	}
 	if (bmp388_get_calibration_data(handle) != 0) {
 		return 1;

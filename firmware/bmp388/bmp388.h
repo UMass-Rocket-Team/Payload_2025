@@ -85,3 +85,5 @@ uint8_t bmp388_init(bmp388_handle_t *handle);
 
 uint8_t bmp388_read_temperature_pressure(bmp388_handle_s *handle, uint32_t *temp_raw, float *temp_c,
 										 uint32_t *pressure_raw, float *pressure_pa);
+
+uint8_t i2c_read(uint8_t device_addr, uint8_t reg, uint8_t* data, uint16_t len);
