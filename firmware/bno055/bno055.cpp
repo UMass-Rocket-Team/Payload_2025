@@ -1,32 +1,33 @@
 #include "bno055.h"
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
-#include "pico/stdlib.h"
-#include "hardware/i2c.h"
 
-// --- I2C Communication Functions ---
-static int i2c_write(uint8_t reg, uint8_t *data, size_t len) {
-    if (data == NULL) {
-        return -1; // Null pointer check
-    }
-    if (i2c_write_blocking(I2C_PORT, BNO055_I2C_ADDRESS, &reg, 1, true) < 0) {
-        return -1; // If failed to send register address
-    }
-    int result = i2c_write_blocking(I2C_PORT, BNO055_I2C_ADDRESS, data, len, false);
-    return result < 0 ? -1 : 0;
+uint8_t i2c_read(uint8_t device_addr, uint8_t reg, uint8_t* data, uint16_t len) {
+	int ret = i2c_write_timeout_us(I2C_PORT, device_addr, &reg, 1, true, 1000);
+	if (ret < 0) {
+		printf("Write failed! \n");
+		return 1;
+	}
+
+	ret = i2c_read_timeout_us(I2C_PORT, device_addr, data, len, false, 1000);
+	if (ret < 0) {
+		printf("Read failed! \n");
+		return 1;
+	}
+	// printf("Read %d bytes! \n", ret);
+	return 0;
 }
 
-static int i2c_read(uint8_t reg, uint8_t *data, size_t len) {
-    if (data == NULL) {
-        return -1; // Null pointer check
-    }
-    if (i2c_write_blocking(I2C_PORT, BNO055_I2C_ADDRESS, &reg, 1, true) < 0) {
-        return -1; // Failed to send register address
-    }
-    int result = i2c_read_blocking(I2C_PORT, BNO055_I2C_ADDRESS, data, len, false);
-    return result < 0 ? -1 : 0;
+static uint8_t i2c_write(uint8_t device_addr, uint8_t reg, uint8_t *buf, uint8_t len) {
+	for (int i = 0; i < len; i++) {
+		uint8_t buffer[2];
+		buffer[0] = reg+i;
+		memcpy(&buffer[1], buf, 1);
+		if (i2c_write_blocking(I2C_PORT, device_addr, buffer, 2, false) < 0) {
+			return 1;
+		}
+	}
+	return 0;
 }
+
 
 int bno_set_mode(bno_operation_mode_t mode) {
     uint8_t data = mode;

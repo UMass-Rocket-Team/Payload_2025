@@ -1,10 +1,9 @@
 #pragma once
-#include <stdint.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
+#include <cstring>
+#include <hardware/i2c.h>
 #include "pico/stdlib.h"
-#include "hardware/i2c.h"
+#include <stdio.h>
+#include "pico/stdio.h"
 
 // --- Constants and Definitions ---
 #define BNO055_I2C_ADDRESS  0x28
