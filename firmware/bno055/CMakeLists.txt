@@ -8,7 +8,7 @@ project(bno055)
 
 pico_sdk_init()
 
-add_library(bno055_lib STATIC ./bno055.c)
+add_library(bno055_lib STATIC ./bno055.cpp)
 
 target_include_directories(bno055_lib PUBLIC ./)
 target_link_libraries(bno055_lib pico_stdlib hardware_i2c)
