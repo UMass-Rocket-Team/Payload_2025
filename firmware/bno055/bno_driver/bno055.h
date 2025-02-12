@@ -43,9 +43,10 @@ typedef struct bno055_handle_s
     uint8_t operation_mode = BNO_MODE_AMG;
 } bno055_handle_t;
 
-// // --- Function Prototypes ---
-// int bno_init(bno_operation_mode_t mode);
-// int bno_set_mode(bno_operation_mode_t mode);
-// int bno_read_accel(float *x, float *y, float *z);
-// int bno_read_gyro(float *x, float *y, float *z);
-// int bno_read_quat(float *w, float *x, float *y, float *z);
+// --- Function Prototypes ---
+uint8_t bno055_init(bno055_handle_t *handle);
+uint8_t bno055_read_quat(bno055_handle_t *handle, int16_t *w, int16_t *x, int16_t *y, int16_t *z);
+uint8_t bno055_read_ypr(bno055_handle_t *handle, int16_t *yaw, int16_t *pitch, int16_t *roll);
+uint8_t bno055_read_omega(bno055_handle_t *handle, int16_t *x, int16_t *y, int16_t *z);
+uint8_t bno055_read_acceleration(bno055_handle_t *handle, int16_t *x, int16_t *y, int16_t *z);
+uint8_t bno055_set_mode(bno055_handle_t *handle, bno055_operation_mode_t mode);
