@@ -44,76 +44,81 @@ uint8_t bno055_set_mode(bno055_handle_t *handle, bno055_operation_mode_t mode) {
     return 0;
 }
 
-uint8_t bno055_read_acceleration(bno055_handle_t *handle, int16_t *x, int16_t *y, int16_t *z) {
+uint8_t bno055_read_acceleration(bno055_handle_t *handle, float *x, float *y, float *z) {
     uint8_t buf[2];
     if (i2c_read(handle->iic_addr, BNO_ACCEL_X, (uint8_t *)buf, 2)) {
         printf("BNO: X-axis acceleration read failed!");
         return 1;
     }
-    *x = (int16_t)(buf[1] << 8 | buf[0]);
+    *x = (int16_t)(buf[1] << 8 | buf[0]) / 100.0;
 
     if (i2c_read(handle->iic_addr, BNO_ACCEL_Y, (uint8_t *)buf, 2)) {
         printf("BNO: Y-axis acceleration read failed!");
         return 1;
     }
-    *y = (int16_t)(buf[1] << 8 | buf[0]);
+    *y = (int16_t)(buf[1] << 8 | buf[0]) / 100.0;
 
     if (i2c_read(handle->iic_addr, BNO_ACCEL_Z, (uint8_t *)buf, 2)) {
         printf("BNO: Z-axis acceleration read failed!");
         return 1;
     }
-    *z = (int16_t)(buf[1] << 8 | buf[0]);
+    *z = (int16_t)(buf[1] << 8 | buf[0]) / 100.0;
     
     return 0;
 }
 
-uint8_t bno055_read_omega(bno055_handle_t *handle, int16_t *x, int16_t *y, int16_t *z) {
+uint8_t bno055_read_omega(bno055_handle_t *handle, float *x, float *y, float *z) {
     uint8_t buf[2];
     if (i2c_read(handle->iic_addr, BNO_OMEGA_X, (uint8_t *)buf, 2)) {
         printf("BNO: X-axis acceleration read failed!");
         return 1;
     }
-    *x = (int16_t)(buf[1] << 8 | buf[0]);
+    *x = (int16_t)(buf[1] << 8 | buf[0]) / 16.0;
 
     if (i2c_read(handle->iic_addr, BNO_OMEGA_Y, (uint8_t *)buf, 2)) {
         printf("BNO: Y-axis acceleration read failed!");
         return 1;
     }
-    *y = (int16_t)(buf[1] << 8 | buf[0]);
+    *y = (int16_t)(buf[1] << 8 | buf[0]) / 16.0;   
 
     if (i2c_read(handle->iic_addr, BNO_OMEGA_Z, (uint8_t *)buf, 2)) {
         printf("BNO: Z-axis acceleration read failed!");
         return 1;
     }
-    *z = (int16_t)(buf[1] << 8 | buf[0]);
+    *z = (int16_t)(buf[1] << 8 | buf[0]) / 16.0;
     
     return 0;
 }
 
-uint8_t bno055_read_ypr(bno055_handle_t *handle, int16_t *yaw, int16_t *pitch, int16_t *roll) {
+uint8_t bno055_read_ypr(bno055_handle_t *handle, float *yaw, float *pitch, float *roll) {
+
+    // uint8_t u;
+    // i2c_read(handle->iic_addr, BNO_UNIT_SEL, &u, 1);
+    // printf("Unit: %u \n", u);
+
     uint8_t buf[2];
     if (i2c_read(handle->iic_addr, BNO_YAW, (uint8_t *)buf, 2)) {
         printf("BNO: Yaw read failed!");
         return 1;
     }
-    *yaw = (int16_t)(buf[1] << 8 | buf[0]);
+    *yaw = (int16_t)(buf[1] << 8 | buf[0]) / 16.0;
 
     if (i2c_read(handle->iic_addr, BNO_PITCH, (uint8_t *)buf, 2)) {
         printf("BNO: Pitch read failed!");
         return 1;
     }
-    *pitch = (int16_t)(buf[1] << 8 | buf[0]);
+    *pitch = (int16_t)(buf[1] << 8 | buf[0]) / 16.0;
 
     if (i2c_read(handle->iic_addr, BNO_ROLL, (uint8_t *)buf, 2)) {
         printf("BNO: Roll read failed!");
         return 1;
     }
-    *roll = (int16_t)(buf[1] << 8 | buf[0]);
+    *roll = (int16_t)(buf[1] << 8 | buf[0]) / 16.0;
 
     return 0;
 }
 
-uint8_t bno055_read_quat(bno055_handle_t *handle, int16_t *w, int16_t *x, int16_t *y, int16_t *z) {
+uint8_t bno055_read_quat(bno055_handle_t *handle, float *w, float *x, float *y, float *z) {
     uint8_t buf[2];
     if (i2c_read(handle->iic_addr, BNO_QUAT_W, (uint8_t *)buf, 2)) {
         printf("BNO: Quat W read failed!");
@@ -156,6 +161,12 @@ uint8_t bno055_init(bno055_handle_t *handle) {
     uint8_t pwr_mode = 0x00;
     if (i2c_write(handle->iic_addr, BNO_PWR_MODE, &pwr_mode, 1) != 0) {
         printf("BNO055: Setting power mode failed!\n");
+        return 1;
+    }
+
+    uint8_t unit_sel = (handle->use_radians) << 2;
+    if (i2c_write(handle->iic_addr, BNO_UNIT_SEL, &unit_sel, 1) != 0) {
+        printf("BNO055: Setting unit mode failed!\n");
         return 1;
     }
 

@@ -8,13 +8,14 @@
 // --- Constants and Definitions ---
 #define BNO055_I2C_ADDRESS  0x28
 #define I2C_PORT            i2c1
-#define SDA_PIN             9  // Adjust based on wiring
-#define SCL_PIN             10  // Adjust based on wiring
+#define SDA_PIN             6  // Adjust based on wiring
+#define SCL_PIN             7  // Adjust based on wiring
 
 // Registers
 typedef enum {
-    BNO_PWR_MODE = 0x00,
-    BNO_OPR_MODE = 0x10,
+    BNO_PWR_MODE = 0x3E,
+    BNO_OPR_MODE = 0x3D,
+    BNO_UNIT_SEL = 0x3B,
     BNO_YAW = 0x1A,
     BNO_PITCH = 0x1E,
     BNO_ROLL = 0x1C,
@@ -41,12 +42,13 @@ typedef struct bno055_handle_s
 {
     uint8_t iic_addr = BNO055_I2C_ADDRESS;
     uint8_t operation_mode = BNO_MODE_AMG;
+    bool use_radians = false;
 } bno055_handle_t;
 
 // --- Function Prototypes ---
 uint8_t bno055_init(bno055_handle_t *handle);
-uint8_t bno055_read_quat(bno055_handle_t *handle, int16_t *w, int16_t *x, int16_t *y, int16_t *z);
-uint8_t bno055_read_ypr(bno055_handle_t *handle, int16_t *yaw, int16_t *pitch, int16_t *roll);
-uint8_t bno055_read_omega(bno055_handle_t *handle, int16_t *x, int16_t *y, int16_t *z);
-uint8_t bno055_read_acceleration(bno055_handle_t *handle, int16_t *x, int16_t *y, int16_t *z);
+uint8_t bno055_read_quat(bno055_handle_t *handle, float *w, float *x, float *y, float *z);
+uint8_t bno055_read_ypr(bno055_handle_t *handle, float *yaw, float *pitch, float *roll);
+uint8_t bno055_read_omega(bno055_handle_t *handle, float *x, float *y, float *z);
+uint8_t bno055_read_acceleration(bno055_handle_t *handle, float *x, float *y, float *z);
 uint8_t bno055_set_mode(bno055_handle_t *handle, bno055_operation_mode_t mode);
