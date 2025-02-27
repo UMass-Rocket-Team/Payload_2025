@@ -13,7 +13,7 @@ typedef uint64_t task_time_t;
 typedef struct {
 
     // task name
-    char* name;
+    const char* name;
 
     // priority number, higher number = higher priority
     task_priority_t priority;

@@ -208,11 +208,11 @@ uint8_t bmp388_read_temperature_pressure(bmp388_handle_s *handle, uint32_t *temp
 }
 
 uint8_t bmp388_init(bmp388_handle_t *handle) {
-	i2c_init(I2C_PORT, 100 * 1000);
-  	gpio_set_function(4, GPIO_FUNC_I2C);
-    gpio_set_function(5, GPIO_FUNC_I2C);
-    gpio_pull_up(4);
-    gpio_pull_up(5);
+	// i2c_init(I2C_PORT, 100 * 1000);
+  	// gpio_set_function(4, GPIO_FUNC_I2C);
+    // gpio_set_function(5, GPIO_FUNC_I2C);
+    // gpio_pull_up(4);
+    // gpio_pull_up(5);
 
 	if (handle == NULL) {
 		return 1;
@@ -222,6 +222,7 @@ uint8_t bmp388_init(bmp388_handle_t *handle) {
 	while(ret != 0) {
 		printf("BMP388: Enabling sensors failed, retrying... \n");
 	}
+	printf("BMP388: reading calibration\n");
 	if (bmp388_get_calibration_data(handle) != 0) {
 		return 1;
 	}

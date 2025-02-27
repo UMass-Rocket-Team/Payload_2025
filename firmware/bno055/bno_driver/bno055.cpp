@@ -148,11 +148,11 @@ uint8_t bno055_read_quat(bno055_handle_t *handle, float *w, float *x, float *y, 
 }
 
 uint8_t bno055_init(bno055_handle_t *handle) {
-    i2c_init(I2C_PORT, 100 * 1000);
-    gpio_set_function(SDA_PIN, GPIO_FUNC_I2C);
-    gpio_set_function(SCL_PIN, GPIO_FUNC_I2C);
-    gpio_pull_up(SDA_PIN);
-    gpio_pull_up(SCL_PIN);
+    // i2c_init(I2C_PORT, 100 * 1000);
+    // gpio_set_function(SDA_PIN, GPIO_FUNC_I2C);
+    // gpio_set_function(SCL_PIN, GPIO_FUNC_I2C);
+    // gpio_pull_up(SDA_PIN);
+    // gpio_pull_up(SCL_PIN);
 
     if (handle == NULL) {
         return 1;
