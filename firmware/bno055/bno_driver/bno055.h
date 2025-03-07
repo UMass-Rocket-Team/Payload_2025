@@ -7,7 +7,7 @@
 
 // --- Constants and Definitions ---
 #define BNO055_I2C_ADDRESS  0x28
-#define I2C_PORT            i2c1
+#define I2C_PORT            i2c0
 #define SDA_PIN             6  // Adjust based on wiring
 #define SCL_PIN             7  // Adjust based on wiring
 
@@ -22,9 +22,9 @@ typedef enum {
     BNO_OMEGA_X = 0x14,
     BNO_OMEGA_Y = 0x16,
     BNO_OMEGA_Z = 0x18,
-    BNO_ACCEL_X = 0x28,
-    BNO_ACCEL_Y = 0x2A,
-    BNO_ACCEL_Z = 0x2C,
+    BNO_ACCEL_X = 0x8,
+    BNO_ACCEL_Y = 0xA,
+    BNO_ACCEL_Z = 0xC,
     BNO_QUAT_W = 0x20,
     BNO_QUAT_X = 0x22,
     BNO_QUAT_Y = 0x24,

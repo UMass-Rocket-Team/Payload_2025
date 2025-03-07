@@ -8,6 +8,9 @@
 static bool sd_initialized = false;
 static FATFS fs;
 
+static uint8_t wav_fbuf[128*1024];  // 128 KB buffer for reading WAV files
+static bool wav_file_in_use = false;
+
 // we might want to change these later to be configurable, but it's fine for now
 
 /* Configuration of hardware SPI object */
@@ -116,24 +119,38 @@ SDFile SD::openFile(const std::string& filename, char mode) { return SDFile(); }
 // SDFile Class functions
 
 bool SDFile::open(const std::string& filename, const char mode) {
-	FRESULT fr = f_open(&fil, filename.c_str(), mode);
+	FRESULT fr = f_open(&fil, filename.c_str(), FA_OPEN_APPEND | FA_WRITE | FA_READ);
 
-	if (fr) {
+	if (fr != FR_OK) {
 		// potentially add error handling?
+		printf("f_open error: %s (%d)\n", FRESULT_str(fr), fr);
 		return false;
 	}
 
 	return true;
 }
 
-void SDFile::close() {
+bool SDFile::close() {
 	// fflush might not belong here, needs to be tested
-	f_close(&fil);
+	FRESULT fr = f_close(&fil);
+	if ( fr != FR_OK ) {
+		printf("f_close error: %s (%d)\n", FRESULT_str(fr), fr);
+		return false;
+	}
+
+	return true;
+
 }
 
 /* ===========================================================================
  */
 // TextFile Class functions
+
+int TextFile::read(char* buffer, int numBytes) {
+	uint bytes_read = 0;
+	f_read(&fil, buffer, numBytes, &bytes_read);
+	return bytes_read;
+}
 
 std::string TextFile::readLine(const char endl = '\n') {
 	std::string line;
@@ -160,7 +177,9 @@ std::string TextFile::readLine(const char endl = '\n') {
 }
 
 bool TextFile::writeLine(const std::string& line) {
-	return f_puts(line.c_str(), &fil) != EOF;
+	return f_puts(line.c_str(), &fil) != -1;
+	// return f_printf(&fil, "%s\n", line.c_str()) >= 0;
+	// f_puts(line.c_str(), &fil);
 }
 
 /* ===========================================================================
@@ -168,18 +187,21 @@ bool TextFile::writeLine(const std::string& line) {
 // WaveFile Class functions
 
 bool WaveFile::open(const std::string& filename) {
-	if (SDFile::open(filename, FA_READ) == false) {
-		return false;
-	}
+	FRESULT fr = f_open(&fil, filename.c_str(), FA_READ);
 
 	dataSize = f_size(&fil);
-	dataPtr = new uint8_t[dataSize];
+	printf("dataSize: %d\n", dataSize);
+	dataPtr = wav_file_in_use ? NULL : wav_fbuf;
+	if (dataPtr == NULL) {
+		printf("Error: Could not allocate memory for file\n");
+		return false;
+	}
 	uint bytes_read = 0;
 
 	f_read(&fil, dataPtr, dataSize, &bytes_read);
 
 	if (bytes_read != dataSize) {
-		delete[] dataPtr;
+		printf("Error: read %d bytes, expected %d\n", bytes_read, dataSize);
 		return false;
 	}
 
@@ -188,9 +210,18 @@ bool WaveFile::open(const std::string& filename) {
 	return true;
 }
 
-void WaveFile::close() {
-	delete[] dataPtr;
-	SDFile::close();
+bool WaveFile::close() {
+
+	wav_file_in_use = false;
+
+	// fflush might not belong here, needs to be tested
+	FRESULT fr = f_close(&fil);
+	if ( fr != FR_OK ) {
+		printf("f_close error: %s (%d)\n", FRESULT_str(fr), fr);
+		return false;
+	}
+
+	return true;
 }
 
 WaveFile::~WaveFile() { close(); }
@@ -204,8 +235,7 @@ uint16_t WaveFile::getNumChannels() {
 uint16_t WaveFile::getBitsPerSample() { return wavFile.header.bits_per_sample; }
 
 uint32_t WaveFile::getNumSamples() {
-	return wavFile.header.data_size / (wavFile.header.number_of_channels *
-									   wavFile.header.bits_per_sample / 8);
+	return dataSize / (wavFile.header.number_of_channels * wavFile.header.bits_per_sample / 8);
 }
 
 int WaveFile::readSamples(
@@ -215,7 +245,7 @@ int WaveFile::readSamples(
 	}
 
 	uint32_t bytesPerSample = getNumChannels() * getBitsPerSample() / 8;
-	uint32_t bytesToRead = numSamples * bytesPerSample;
+	uint32_t bytesToRead = numSamples * 2;
 
 	if (offset + bytesToRead > dataSize) {
 		bytesToRead = dataSize - offset;
@@ -223,5 +253,5 @@ int WaveFile::readSamples(
 
 	memcpy(buffer, dataPtr + offset, bytesToRead);
 
-	return bytesToRead / bytesPerSample;
+	return bytesToRead / 2;
 }

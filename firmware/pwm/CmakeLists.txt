@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.13)
 
 add_library(pwm_generic)
 
-target_include_directories(sd_library PRIVATE ${CMAKE_CURRENT_LIST_DIR}/pwmGeneric.hpp)
+target_include_directories(pwm_generic PUBLIC ${CMAKE_CURRENT_LIST_DIR}/)
 
-target_link_libraries(sd_library
+target_link_libraries(pwm_generic
     pico_stdlib
     hardware_pwm
     hardware_clocks

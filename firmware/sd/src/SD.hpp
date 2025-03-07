@@ -25,7 +25,7 @@ class SDFile {
 	~SDFile() = default;
 
 	bool open(const std::string& filename, const char mode);
-	void close();
+	bool close();
 
 	bool isOpen() { return fil.obj.fs != NULL; }
 
@@ -39,7 +39,10 @@ class TextFile : public SDFile {
 	~TextFile() = default;
 
 	std::string readLine(const char endl);
+	int read(char* buffer, int numBytes);
 	bool writeLine(const std::string& line);
+
+	size_t size() { return f_size(&fil); }
 };
 
 class WaveFile : public SDFile {
@@ -48,7 +51,7 @@ class WaveFile : public SDFile {
 	~WaveFile();
 
 	bool open(const std::string& filename);
-	void close();
+	bool close();
 
 	uint16_t getSampleRate();
 	uint16_t getNumChannels();

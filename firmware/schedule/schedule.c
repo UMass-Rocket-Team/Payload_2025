@@ -74,13 +74,13 @@ int scheduler_run() {
     scheduler_t* current_scheduler = get_scheduler();
 
     task_t* highest_priority_task = NULL;
-    int highest_priority = -1;
+    task_priority_t highest_priority = 0;
     uint64_t highest_next_run = UINT64_MAX;
 
     for (int i = 0; i < current_scheduler->task_cnt; i++) {
         task_t* task = current_scheduler->tasks[i];
         if (task != NULL && (task->next_run < time_us_64())) {
-            if (task->priority > highest_priority || 
+            if (task->priority >= highest_priority || 
                (task->priority == highest_priority && task->next_run < highest_next_run)) {
                 highest_priority_task = task;
                 highest_priority = task->priority;
