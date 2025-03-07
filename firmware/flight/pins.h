@@ -2,8 +2,8 @@
 
 // SPI Defines
 #define PIN_MISO 4
-#define PIN_SCK  2
 #define PIN_MOSI 3
+#define PIN_SCK  2
 
 // I2C defines
 #define I2C_SDA 0

@@ -25,6 +25,10 @@
 #include "runningCounter.hpp"
 #include "ringBuff.hpp"
 
+#include "pico/time.h"
+
+#include "EepromArray.hpp"
+
 extern "C" {
 
     #include "schedule.h"
@@ -35,6 +39,67 @@ extern "C" {
     #include "DS1307.h"
 
 }
+
+// extern "C" {
+
+//     // Naked function attribute prevents the compiler from adding prologue/epilogue code.
+//     __attribute__((naked)) void HardFault_Handler(void) {
+//         __asm volatile (
+//             "TST lr, #4            \n" // Test bit 2 of LR to determine stack in use.
+//             "ITE EQ                \n"
+//             "MRSEQ r0, MSP         \n" // If 0, use MSP.
+//             "MRSNE r0, PSP         \n" // Else, use PSP.
+//             "B hard_fault_handler_c\n" // Branch to C function.
+//         );
+//     }
+    
+//     void hard_fault_handler_c(uint32_t *stack_address) {
+//         // Extract register values from the stack frame.
+//         uint32_t r0  = stack_address[0];
+//         uint32_t r1  = stack_address[1];
+//         uint32_t r2  = stack_address[2];
+//         uint32_t r3  = stack_address[3];
+//         uint32_t r12 = stack_address[4];
+//         uint32_t lr  = stack_address[5];
+//         uint32_t pc  = stack_address[6];
+//         uint32_t psr = stack_address[7];
+    
+//         // Optionally, output the register values for debugging.
+// //         printf("Hard fault occurred!\n");
+// //         printf("R0  = 0x%08lx\n", r0);
+// //         printf("R1  = 0x%08lx\n", r1);
+// //         printf("R2  = 0x%08lx\n", r2);
+// //         printf("R3  = 0x%08lx\n", r3);
+// //         printf("R12 = 0x%08lx\n", r12);
+// //         printf("LR  = 0x%08lx\n", lr);
+// //         printf("PC  = 0x%08lx\n", pc);
+// //         printf("PSR = 0x%08lx\n", psr);
+    
+//         // Hang here or reset the system.
+//         while (true);
+//     }
+    
+//     __attribute__((noreturn)) void panic_handler(const char *file, int line, const char *func, const char *format, ...) {
+//         // Optionally, you can use the variable arguments (format, ...) to log details.
+        
+//         // Initialize the LED if not already done.
+//         const uint LED_PIN = PICO_DEFAULT_LED_PIN;
+//         gpio_init(LED_PIN);
+//         gpio_set_dir(LED_PIN, GPIO_OUT);
+    
+//         // Optional: If you want to trigger a watchdog reset.
+//         // watchdog_enable(1000, 0);
+    
+//         // Blink LED in an infinite loop to indicate a panic.
+//         while (true) {
+//             gpio_put(LED_PIN, 1);
+//             sleep_ms(250);
+//             gpio_put(LED_PIN, 0);
+//             sleep_ms(250);
+//         }
+//     }
+    
+// }
 
 void task_main_cb(void* args);
 
@@ -132,7 +197,16 @@ namespace navigation {
 
     void update_posvel(float pos) {
 
-        if (stateControl::state == stateControl::STATE_IDLE) {
+        float acc = sqrtf(ax*ax + ay*ay + az*az);
+
+        bool acc_ok = (acc > 8.0) && (acc < 11.6);
+
+        if ((stateControl::state == stateControl::STATE_IDLE) && acc_ok) {
+
+            if ( running_launchpad_alt_ringbuf.isFull() ) {
+                float _;
+                running_launchpad_alt_ringbuf.pop(_);
+            }
 
             running_launchpad_alt_ringbuf.push(pos);
 
@@ -142,7 +216,13 @@ namespace navigation {
             }
 
             altitude_launchpad = sum / running_launchpad_alt_ringbuf.size();
+            // printf("Launchpad alt: %.2f\n", altitude_launchpad);
 
+        }
+
+        if ( running_alt_ringbuff.isFull() ) {
+            float _;
+            running_alt_ringbuff.pop(_);
         }
 
         running_alt_ringbuff.push(pos);
@@ -163,7 +243,10 @@ namespace navigation {
 
 namespace dataCollection {
 
-    uint32_t t_landing;
+    uint64_t t_last_time_sync = 0;
+    uint64_t t_time_sync_unix = 0;
+
+    uint64_t t_landing_unix;
     float apogee_reached;
     float battery_voltage;
     float landing_velocity;
@@ -275,9 +358,13 @@ namespace dataCollection {
                 TTS::append_field(TTS::tts_field_t::celsius);
 
                 TTS::append_field(TTS::tts_field_t::landing_time);
-                TTS::append_data(t_landing/uint64_t(60*60*1000000), 0, TTS::tts_field_t::hour);
-                TTS::append_data((t_landing/(60*1000000))%60, 0, TTS::tts_field_t::minute);
-                TTS::append_data((t_landing/1000000)%60, 0, TTS::tts_field_t::second);
+                uint64_t hours = (t_landing_unix / 3600) % 24;
+                uint64_t minutes = (t_landing_unix / 60) % 60;
+                uint64_t seconds = t_landing_unix % 60;
+
+                TTS::append_data(hours, 0, TTS::tts_field_t::hour);
+                TTS::append_data(minutes, 0, TTS::tts_field_t::minute);
+                TTS::append_data(seconds, 0, TTS::tts_field_t::second);
 
                 TTS::append_field(TTS::tts_field_t::stemnot);
                 TTS::append_field(TTS::tts_field_t::stem_surival);
@@ -323,52 +410,59 @@ int main()
     // Initialize debugging output and hardware standard libraries.
     stdio_init_all();
 
+    // Initialize UART for standard I/O
+    // uart_init(uart1, 115200);
+    // gpio_set_function(12, GPIO_FUNC_UART);
+    // gpio_set_function(13, GPIO_FUNC_UART);
+
     // Pre-flight pause to allow removal of test code in final flight configuration.
     // TODO:
     // Remove before flight
     getchar();
     sleep_ms(100);
     
-    printf("Payload\n");
+	printf("Payload\n");
+
+	buzzer_off();
 
     // Set and add main task to the scheduler with appropriate priority.
     task_main.priority = 2;
 
     int ret;
 
-    ret = scheduler_add_task(&task_main);
-    if (ret != 0) {
-        printf("Failed to add main task\n");
-        while(1) {
-            buzzer_beep_error();
-        }
-    }
+    // ret = scheduler_add_task(&task_main);
+    // if (ret != 0) {
+    // //     printf("Failed to add main task\n");
+    //     while(1) {
+    //         buzzer_beep_error();
+    //     }
+    // }
 
-    // Add buzzer and TTS tasks as auxiliary tasks with error handling.
-    ret = scheduler_add_task(&task_buzz);
-    if (ret != 0) {
-        printf("Failed to add buzzer task\n");
-        while(1) {
-            buzzer_beep_error();
-        }
-    }
+    // // Add buzzer and TTS tasks as auxiliary tasks with error handling.
+    // ret = scheduler_add_task(&task_buzz);
+    // if (ret != 0) {
+    // //     printf("Failed to add buzzer task\n");
+    //     while(1) {
+    //         buzzer_beep_error();
+    //     }
+    // }
 
-    ret = scheduler_add_task(&TTS::task_tts);
-    if (ret != 0) {
-        printf("Failed to add TTS task\n");
-        while(1) {
-            buzzer_beep_error();
-        }
-    }
+    // ret = scheduler_add_task(&TTS::task_tts);
+    // if (ret != 0) {
+    // //     printf("Failed to add TTS task\n");
+    //     while(1) {
+    //         buzzer_beep_error();
+    //     }
+    // }
 
-    // Initialize the scheduler to start task execution.
-    ret = scheduler_init();
-    if (ret != 0) {
-        printf("Scheduler init failed\n");
-        while(1) {
-            buzzer_beep_error();
-        }
-    }
+    // // Initialize the scheduler to start task execution.
+    // ret = scheduler_init();
+    // if (ret != 0) {
+    // //     printf("Scheduler init failed\n");
+    //     while(1) {
+    //         buzzer_beep_error();
+    //     }
+    // }
 
     // Initialize I2C for sensor communication at 400kHz.
     i2c_init(i2c0, 400*1000);
@@ -447,11 +541,84 @@ int main()
 
     datalog::set_filename(file_index);
 
+    printf("Reading wave files...\n");
+
+    // Read wave files from the SD card for TTS operations.
+
+    // for ( int i = 0; i < (int)TTS::tts_field_t::field_max; i++ ) {
+
+    //     if ( i == (int)TTS::tts_field_t::pause ) {
+    //         continue;
+    //     }
+
+    //     char filename[32];
+    //     TTS::filename_from_field((TTS::tts_field_t)i, filename);
+
+    //     WaveFile soundFile(&TTS::waveArray[i]);
+    //     printf("Opening file %s\n", filename);
+    //     if (!soundFile.open(filename)) {
+    //         printf("Error: Could not open file\n");
+    //         continue;
+    //     }
+
+    //     // copy to buffer
+
+    //     size_t waveSz = soundFile.getNumSamples();
+    //     // TTS::waveArray[i] = (uint8_t*)malloc(waveSz);
+    //     if (TTS::waveArray[i] == NULL) {
+    //         printf("Error: Could not allocate memory\n");
+    //         continue;
+    //     }
+    //     // TTS::waveArray[i].init(waveSz * 2);
+
+    //     uint8_t* wavePtr = soundFile.getPtr();
+
+    //     // printf("Copying %d (%d after rounding) samples\n", waveSz*2, ((waveSz*2)/256 + 1) * 256);
+    //     // TTS::waveArray[i].write(0, wavePtr, ((waveSz*2)/256 + 1) * 256);
+    //     printf("Copying\n");
+    //     int last_percent = 0;
+    //     for (size_t j = 0; j < waveSz; j++) {
+    //         TTS::waveArray[i][j] = wavePtr[j];
+    //         if (int(float(j)/waveSz * 100.0) >= last_percent + 10) {
+    //             last_percent = int(float(j)/waveSz * 100.0);
+    //             printf("Copying %.2f %%\n", float(j)/waveSz * 100.0);
+    //         }
+    //     }
+
+    //     if (!soundFile.close()) {
+    //         printf("Error: Could not close file\n");
+    //     }
+
+    //     printf("Completed file %d of %d (%.2f %)\n", i, (int)TTS::tts_field_t::field_max, (float(i) / (int)TTS::tts_field_t::field_max) * 100.0);
+
+    // }
+
+    printf("Waiting for time sync\n");
+
     // Synchronize time with external input, proceeding after a 500ms timeout.
-    if (getchar_timeout_us(500000) != PICO_ERROR_TIMEOUT) {
-        printf("Time sync received, proceeding with boot\n");
+    int c;
+
+    c = getchar_timeout_us(5000);
+    if (c == PICO_ERROR_TIMEOUT) {
+        printf("Timeout\n");
     } else {
-        printf("Time sync timeout, proceeding with boot\n");
+
+        printf("Syncing time\n");
+        char time_str[33];
+        int i = 0;
+        while ( c != PICO_ERROR_TIMEOUT && c != '\n' && i < 32 ) {
+            time_str[i] = c;
+            i++;
+            c = getchar_timeout_us(5000);
+        }
+
+        time_str[i] = '\0';
+
+        printf("Time string: %s\n", time_str);
+        
+        int64_t time_val = atoll(time_str);
+        printf("Time value: %lld\n", time_val);
+
     }
 
     // Signal successful initialization via auditory (buzzer) cues.
@@ -465,12 +632,18 @@ int main()
 
     printf("Entering main loop\n");
 
+    gpio_init(25);
+    gpio_set_dir(25, GPIO_OUT);
+
     // Main loop: continuously run scheduled tasks.
     while(1) {
-        scheduler_run();
+        task_main_cb(NULL);
+        while(time_us_64() < task_main.next_run) {;}
     }
 
 }
+
+int tts_iter_num = 0;
 
 /**
  * @brief Task callback function for the main scheduling loop.
@@ -489,50 +662,88 @@ int main()
  */
 void task_main_cb(void* args) {
 
+    if ( stateControl::state == stateControl::STATE_IDLE ) {
+        int c;
+
+        c = getchar_timeout_us(50);
+        if (c == PICO_ERROR_TIMEOUT) {
+            printf("Timeout\n");
+        } else {
+
+            printf("Syncing time\n");
+            char time_str[33];
+            int i = 0;
+            while ( c != PICO_ERROR_TIMEOUT && c != '\n' && i < 32 ) {
+                time_str[i] = c;
+                i++;
+                c = getchar_timeout_us(5000);
+            }
+
+            time_str[i] = '\0';
+
+            printf("Time string: %s\n", time_str);
+            
+            int64_t time_val = atoll(time_str);
+            printf("Time value: %lld\n", time_val);
+
+            dataCollection::t_last_time_sync = time_us_64();
+            dataCollection::t_time_sync_unix = time_val;
+
+        }
+    }
+
+    gpio_put(25, 1);
+
+    uint64_t t_start = time_us_64();
+
     // Read BNO055 data
 
-    float pres, temp;
+    float pres, temp, alt_raw;
     uint32_t pres_raw, temp_raw;
     uint8_t ret;
 
-    // Read angular velocity from BNO055 sensor.
-    // If the read fails, log a failure message.
-    ret = bno055_read_omega(&bno055_handle, &navigation::rx, &navigation::ry, &navigation::rz);
-    if (ret != 0) {
-        printf("BNO055 read failed\n");
+    if ( stateControl::state != stateControl::STATE_LANDED ) {
+
+        // Read angular velocity from BNO055 sensor.
+        // If the read fails, log a failure message.
+        ret = bno055_read_omega(&bno055_handle, &navigation::rx, &navigation::ry, &navigation::rz);
+        if (ret != 0) {
+            printf("BNO055 read failed\n");
+        }
+
+        // Read acceleration values from BNO055 sensor.
+        ret = bno055_read_acceleration(&bno055_handle, &navigation::ax, &navigation::ay, &navigation::az);
+        if (ret != 0) {
+            printf("BNO055 read failed\n");
+        }
+
+        // Read quaternion data from BNO055 sensor.
+        ret = bno055_read_quat(&bno055_handle, &navigation::qw, &navigation::qx, &navigation::qy, &navigation::qz);
+        if (ret != 0) {
+            printf("BNO055 read failed\n");
+        }
+
+        // Read Euler angles (yaw, pitch, roll) from BNO055 sensor.
+        ret = bno055_read_ypr(&bno055_handle, &navigation::y, &navigation::p, &navigation::r);
+        if (ret != 0) {
+            printf("BNO055 read failed\n");
+        }
+
+        // Read BMP388 data
+
+        // Read measurements from BMP388 sensor (temperature and pressure).
+        ret = bmp388_read_temperature_pressure(&bmp388_handle, &temp_raw, &temp, &pres_raw, &pres);
+        if (ret != 0) {
+            printf("BMP388 read failed\n");
+        }
+
+        // calculate altitude
+        alt_raw = 44330 * (1.0 - pow((pres/100.f) / 1013.25, 0.1903));
+
+        // Update position and velocity estimates using filtered altitude values.
+        navigation::update_posvel(alt_raw);
+            
     }
-
-    // Read acceleration values from BNO055 sensor.
-    ret = bno055_read_acceleration(&bno055_handle, &navigation::ax, &navigation::ay, &navigation::az);
-    if (ret != 0) {
-        printf("BNO055 read failed\n");
-    }
-
-    // Read quaternion data from BNO055 sensor.
-    ret = bno055_read_quat(&bno055_handle, &navigation::qw, &navigation::qx, &navigation::qy, &navigation::qz);
-    if (ret != 0) {
-        printf("BNO055 read failed\n");
-    }
-
-    // Read Euler angles (yaw, pitch, roll) from BNO055 sensor.
-    ret = bno055_read_ypr(&bno055_handle, &navigation::y, &navigation::p, &navigation::r);
-    if (ret != 0) {
-        printf("BNO055 read failed\n");
-    }
-
-    // Read BMP388 data
-
-    // Read measurements from BMP388 sensor (temperature and pressure).
-    ret = bmp388_read_temperature_pressure(&bmp388_handle, &temp_raw, &temp, &pres_raw, &pres);
-    if (ret != 0) {
-        printf("BMP388 read failed\n");
-    }
-
-    // calculate altitude
-    float alt_raw = 44330 * (1.0 - pow((pres/100.f) / 1013.25, 0.1903));
-
-    // Update position and velocity estimates using filtered altitude values.
-    navigation::update_posvel(alt_raw);
 
     // Check state
     stateControl::system_state_t old_state = stateControl::state;
@@ -563,7 +774,8 @@ void task_main_cb(void* args) {
                                    navigation::ay * navigation::ay +
                                    navigation::az * navigation::az) / 9.816);
     if (stateControl::state == stateControl::STATE_LANDED && dataCollection::t_transmission_start == 0) {
-        dataCollection::t_landing = time_us_32();
+        dataCollection::t_landing_unix = dataCollection::t_time_sync_unix + ((time_us_64() - dataCollection::t_last_time_sync) / 1000000);
+        printf("Landing time: %llu\n", dataCollection::t_landing_unix);
         dataCollection::battery_voltage = 3.3;
         dataCollection::landing_velocity = navigation::velocity;
         dataCollection::temperature = temp;
@@ -574,26 +786,38 @@ void task_main_cb(void* args) {
     }
 
     dataCollection::update_transmission();
-    TTS::update(NULL);
 
     // Debug: print current flight metrics for non-landed state.
     if (stateControl::state != stateControl::STATE_LANDED) {
         printf("pos: %.2f, vel: %.2f, ax: %.2f, ay: %.2f, az: %.2f\n", 
-               navigation::altitude, navigation::velocity, navigation::ax, navigation::ay, navigation::az);
+           navigation::altitude, navigation::velocity, navigation::ax, navigation::ay, navigation::az);
+    } 
+
+    if ( stateControl::state == stateControl::STATE_LANDED && tts_iter_num >= 10) {
+        TTS::update(NULL);
+        tts_iter_num = 0;
     }
 
+    tts_iter_num++;
+
     // Log data
+    if ( stateControl::state != stateControl::STATE_LANDED ) {
+        // Log sensor data into a CSV file via datalog module.
+        datalog::update_datalog_accel(navigation::ax, navigation::ay, navigation::az);
+        datalog::update_datalog_gyro(navigation::rx, navigation::ry, navigation::rz);
+        datalog::update_datalog_quat(navigation::qw, navigation::qx, navigation::qy, navigation::qz);
+        datalog::update_datalog_baro(pres, temp, alt_raw);
+        datalog::update_datalog_fusion(navigation::altitude, navigation::velocity);
 
-    // Log sensor data into a CSV file via datalog module.
-    datalog::update_datalog_accel(navigation::ax, navigation::ay, navigation::az);
-    datalog::update_datalog_gyro(navigation::rx, navigation::ry, navigation::rz);
-    datalog::update_datalog_quat(navigation::qw, navigation::qx, navigation::qy, navigation::qz);
-    datalog::update_datalog_baro(pres, temp, alt_raw);
-    datalog::update_datalog_fusion(navigation::altitude, navigation::velocity);
-
-    datalog::update();
+        // uint64_t t0 = time_us_64();
+        datalog::update();
+        // uint64_t t1 = time_us_64();
+    }
+    // // printf("Datalog update tim e: %llu\n", uint64_t(t1 - t0));
 
     // Schedule next execution of this task (every 20ms).
-    task_main.next_run = time_us_64() + 20000;
+    task_main.next_run = t_start + 20000;
+
+    gpio_put(25, 0);
 
 }

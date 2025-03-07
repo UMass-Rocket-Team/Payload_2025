@@ -4,6 +4,8 @@
 #include "SD.hpp"
 #include "pwmGeneric.hpp"
 #include "fifo.hpp"
+#include "EepromArray.hpp"
+#include "audio_files.h"
 
 extern "C" {
     #include "schedule.h"
@@ -24,9 +26,9 @@ namespace TTS {
         eight,
         nine,
     
-        dot = 10,
+        dot,
     
-        pause = 11,
+        pause,
     
         callsign,
         apogee,
@@ -60,7 +62,9 @@ namespace TTS {
         pitch,
         roll,
 
-        degree
+        degree,
+
+        field_max
     
     };
 
@@ -177,8 +181,7 @@ namespace TTS {
                 strcpy(filename, "dot.wav");
                 return true;
             case tts_field_t::pause:
-                strcpy(filename, "pause.wav");
-                return true;
+                return false;
             case tts_field_t::callsign:
                 strcpy(filename, "callsign.wav");
                 return true;
@@ -267,6 +270,131 @@ namespace TTS {
         
     }
     
+    const uint8_t* wave_pointer_from_field(tts_field_t field, size_t* size) {
+    
+        switch(field) {
+
+            case tts_field_t::zero:
+                *size = sizeof(f_0_wav);
+                return f_0_wav;
+            case tts_field_t::one:
+                *size = sizeof(f_1_wav);
+                return f_1_wav;
+            case tts_field_t::two:
+                *size = sizeof(f_2_wav);
+                return f_2_wav;
+            case tts_field_t::three:
+                *size = sizeof(f_3_wav);
+                return f_3_wav;
+            case tts_field_t::four:
+                *size = sizeof(f_4_wav);
+                return f_4_wav;
+            case tts_field_t::five:
+                *size = sizeof(f_5_wav);
+                return f_5_wav;
+            case tts_field_t::six:
+                *size = sizeof(f_6_wav);
+                return f_6_wav;
+            case tts_field_t::seven:
+                *size = sizeof(f_7_wav);
+                return f_7_wav;
+            case tts_field_t::eight:
+                *size = sizeof(f_8_wav);
+                return f_8_wav;
+            case tts_field_t::nine:
+                *size = sizeof(f_9_wav);
+                return f_9_wav;
+            case tts_field_t::dot:
+                *size = sizeof(f_dot_wav);
+                return f_dot_wav;
+            case tts_field_t::callsign:
+                *size = sizeof(f_callsign_wav);
+                return f_callsign_wav;
+            case tts_field_t::landing_time:
+                *size = sizeof(f_t_land_wav);
+                return f_t_land_wav;
+            case tts_field_t::apogee:
+                *size = sizeof(f_apogee_wav);
+                return f_apogee_wav;
+            case tts_field_t::max_alt:
+                *size = sizeof(f_apogee_wav);
+                return f_apogee_wav;
+            case tts_field_t::land_vel:
+                *size = sizeof(f_land_vel_wav);
+                return f_land_vel_wav;
+            case tts_field_t::g_force:
+                *size = sizeof(f_gforce_wav);
+                return f_gforce_wav;
+            case tts_field_t::orientation:
+                *size = sizeof(f_orient_wav);
+                return f_orient_wav;
+            case tts_field_t::temperature:
+                *size = sizeof(f_temp_wav);
+                return f_temp_wav;
+            case tts_field_t::batt_voltage:
+                *size = sizeof(f_batt_wav);
+                return f_batt_wav;
+            case tts_field_t::stem_surival:
+                *size = sizeof(f_survival_wav);
+                return f_survival_wav;
+            case tts_field_t::kilo:
+                *size = sizeof(f_kilo_wav);
+                return f_kilo_wav;
+            case tts_field_t::charlie:
+                *size = sizeof(f_charlie_wav);
+                return f_charlie_wav;
+            case tts_field_t::whiskey:
+                *size = sizeof(f_whiskey_wav);
+                return f_whiskey_wav;
+            case tts_field_t::mps:
+                *size = sizeof(f_mps_wav);
+                return f_mps_wav;
+            case tts_field_t::celsius:
+                *size = sizeof(f_celsius_wav);
+                return f_celsius_wav;
+            case tts_field_t::volts:
+                *size = sizeof(f_volts_wav);
+                return f_volts_wav;
+            case tts_field_t::g:
+                *size = sizeof(f_g_wav);
+                return f_g_wav;
+            case tts_field_t::meters:
+                *size = sizeof(f_meters_wav);
+                return f_meters_wav;
+            case tts_field_t::second:
+                *size = sizeof(f_second_wav);
+                return f_second_wav;
+            case tts_field_t::minute:
+                *size = sizeof(f_minute_wav);
+                return f_minute_wav;
+            case tts_field_t::hour:
+                *size = sizeof(f_hour_wav);
+                return f_hour_wav;
+            case tts_field_t::stem_dead:
+                *size = sizeof(f_stem_dead_wav);
+                return f_stem_dead_wav;
+            case tts_field_t::stem_alive:
+                *size = sizeof(f_stem_alive_wav);
+                return f_stem_alive_wav;
+            case tts_field_t::yaw:
+                *size = sizeof(f_yaw_wav);
+                return f_yaw_wav;
+            case tts_field_t::pitch:
+                *size = sizeof(f_pitch_wav);
+                return f_pitch_wav;
+            case tts_field_t::roll:
+                *size = sizeof(f_roll_wav);
+                return f_roll_wav;
+            case tts_field_t::degree:
+                *size = sizeof(f_degree_wav);
+                return f_degree_wav;
+            default:
+                return nullptr;
+
+        }
+    
+    }
+
     void init() {}
 
     void update(void* args) {
@@ -279,6 +407,20 @@ namespace TTS {
     
         tts_field_t field = tts_fifo.pop();
     
+        size_t data_size;
+        const uint8_t* data_ptr;
+
+        if ( field == tts_field_t::pause ) {
+            data_ptr = nullptr;
+        } else {
+            data_ptr = wave_pointer_from_field(field, &data_size);
+        
+            if (data_ptr == nullptr) {
+                printf("Error: Could not find data for field\n");
+                return;
+            }
+        }
+
         char filename[32];
     
         if (!filename_from_field(field, filename)) {
@@ -288,11 +430,12 @@ namespace TTS {
     
         // play file
     
-        printf("Playing file: %s\n", filename);
+        printf("Playing file: %s...", filename);
     
         PWM pwmChan;
     
-        if ( !pwmChan.init(16, 16000) ) {
+        if ( !pwmChan.init(16, 8000) ) {
+            printf("[FAILED]\n");
             printf("Error: Could not init PWM\n");
             return;
         }
@@ -303,42 +446,31 @@ namespace TTS {
             pwmChan.set_level(0.0f);
             sleep_ms(200);
             pwmChan.set_enabled(false);
+            printf("[OK]\n");
             printf("Pause\n");
             task_tts.next_run = time_us_64() + 10000; // run at 100Hz
             return;
         }
-        
-        WaveFile soundFile;
-
-        if ( !soundFile.open(filename) ) {
-            printf("Error: Could not open file\n");
-            return;
-        }
     
-        for ( int i = 0; i < soundFile.getNumSamples(); i++ ) {
+        for ( int i = 0; i < data_size; i++ ) {
             
             uint64_t start = time_us_64();
-
-            // copy the sample from the file buffer
-            int16_t sample;
-            soundFile.readSamples((uint16_t*)&sample, 2, i*2);
     
             // convert to float and scale to [0.0, 1.0]
-            float sample_f = ((float(sample) / INT16_MAX) + 1.f) / 2.f;
+            float sample_f = ((float(data_ptr[i]) / INT8_MAX) + 1.f) / 2.f;
 
             // Update PWM slice
             pwmChan.set_level(sample_f);  
     
             // Wait for the next sample time
-            while ((time_us_64() - start) < (1000000 / 16000)) {}
+            while ((time_us_64() - start) < (1000000 / 8000)) {}
     
         }
     
-        pwmChan.set_enabled(false);
+        pwmChan.set_level(0.0f);
+        // pwmChan.set_enabled(false);
     
-        soundFile.close();
-    
-        printf("File played\n");
+        printf("[OK]\n");
 
         task_tts.next_run = time_us_64() + 10000; // run at 100Hz
     

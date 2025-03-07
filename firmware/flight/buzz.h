@@ -29,6 +29,7 @@ void buzzer_off() {
 }
 
 void buzzer_beep_error() {
+    if (!buzzer_en) { return; }
     buzzer_tone(PIN_BUZZER, BUZZER_ERR_FREQ);
     sleep_ms(500);
     buzzer_disable(PIN_BUZZER);
@@ -36,6 +37,7 @@ void buzzer_beep_error() {
 }
 
 void buzzer_beep_ok() {
+    if (!buzzer_en) { return; }
     for ( int i = 0; i < 3; i++ ) {
         buzzer_tone(PIN_BUZZER, BUZZER_OK_FREQ);
         sleep_ms(250);
