@@ -57,7 +57,7 @@ engine.setProperty('rate', 120)     # setting up new voice rate
 for filename, phrase in tts_phrases:
     engine.save_to_file(phrase, f"{mp3_dir}/{filename}.mp3")
     engine.runAndWait()
-    FFmpeg(inputs={f"{mp3_dir}/{filename}.mp3": None}, outputs={f"{wav_dir}/{filename}.wav": '-ar 16000 -ac 1'}).run()
+    FFmpeg(inputs={f"{mp3_dir}/{filename}.mp3": None}, outputs={f"{wav_dir}/{filename}.wav": '-ar 8000 -ac 1'}).run()
 
 # for filename, _ in tts_phrases:
 #     with wave.open(f"{wav_dir}/{filename}.wav", 'rb') as wav_file:
