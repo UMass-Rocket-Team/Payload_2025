@@ -52,6 +52,10 @@ void update_datalog_fusion(const float altitude, const float velocity) {
     datalog_frame.fusion_velocity = velocity;
 }
 
+void update_datalog_batt(const float batt_voltage) {
+    datalog_frame.batt_voltage = batt_voltage;
+}
+
 void init() {
 
     TextFile datalog_file;
@@ -81,7 +85,7 @@ void update() {
 
     datalog_frame.timestamp = to_us_since_boot(get_absolute_time());
 
-    int bytes_enc = sprintf(datalog_strbuf, "%lu,%.6f,%.6f,%.6f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n",
+    int bytes_enc = sprintf(datalog_strbuf, "%lu,%.6f,%.6f,%.6f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n",
             datalog_frame.timestamp,
             datalog_frame.baro_pressure,
             datalog_frame.baro_temperature,
@@ -100,7 +104,8 @@ void update() {
             datalog_frame.quat_y,
             datalog_frame.quat_z,
             datalog_frame.fusion_altitude,
-            datalog_frame.fusion_velocity);
+            datalog_frame.fusion_velocity,
+            datalog_frame.batt_voltage);
 
     // printf("encoded %d bytes\n", bytes_enc);
 

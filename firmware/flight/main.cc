@@ -12,6 +12,7 @@
 
 #include "hardware/spi.h"
 #include "hardware/i2c.h"
+#include "hardware/adc.h"
 
 #include "tts.hpp"
 #include "datalog.hpp"
@@ -27,7 +28,7 @@
 
 #include "pico/time.h"
 
-#include "EepromArray.hpp"
+// #include "EepromArray.hpp"
 
 extern "C" {
 
@@ -39,67 +40,6 @@ extern "C" {
     #include "DS1307.h"
 
 }
-
-// extern "C" {
-
-//     // Naked function attribute prevents the compiler from adding prologue/epilogue code.
-//     __attribute__((naked)) void HardFault_Handler(void) {
-//         __asm volatile (
-//             "TST lr, #4            \n" // Test bit 2 of LR to determine stack in use.
-//             "ITE EQ                \n"
-//             "MRSEQ r0, MSP         \n" // If 0, use MSP.
-//             "MRSNE r0, PSP         \n" // Else, use PSP.
-//             "B hard_fault_handler_c\n" // Branch to C function.
-//         );
-//     }
-    
-//     void hard_fault_handler_c(uint32_t *stack_address) {
-//         // Extract register values from the stack frame.
-//         uint32_t r0  = stack_address[0];
-//         uint32_t r1  = stack_address[1];
-//         uint32_t r2  = stack_address[2];
-//         uint32_t r3  = stack_address[3];
-//         uint32_t r12 = stack_address[4];
-//         uint32_t lr  = stack_address[5];
-//         uint32_t pc  = stack_address[6];
-//         uint32_t psr = stack_address[7];
-    
-//         // Optionally, output the register values for debugging.
-// //         printf("Hard fault occurred!\n");
-// //         printf("R0  = 0x%08lx\n", r0);
-// //         printf("R1  = 0x%08lx\n", r1);
-// //         printf("R2  = 0x%08lx\n", r2);
-// //         printf("R3  = 0x%08lx\n", r3);
-// //         printf("R12 = 0x%08lx\n", r12);
-// //         printf("LR  = 0x%08lx\n", lr);
-// //         printf("PC  = 0x%08lx\n", pc);
-// //         printf("PSR = 0x%08lx\n", psr);
-    
-//         // Hang here or reset the system.
-//         while (true);
-//     }
-    
-//     __attribute__((noreturn)) void panic_handler(const char *file, int line, const char *func, const char *format, ...) {
-//         // Optionally, you can use the variable arguments (format, ...) to log details.
-        
-//         // Initialize the LED if not already done.
-//         const uint LED_PIN = PICO_DEFAULT_LED_PIN;
-//         gpio_init(LED_PIN);
-//         gpio_set_dir(LED_PIN, GPIO_OUT);
-    
-//         // Optional: If you want to trigger a watchdog reset.
-//         // watchdog_enable(1000, 0);
-    
-//         // Blink LED in an infinite loop to indicate a panic.
-//         while (true) {
-//             gpio_put(LED_PIN, 1);
-//             sleep_ms(250);
-//             gpio_put(LED_PIN, 0);
-//             sleep_ms(250);
-//         }
-//     }
-    
-// }
 
 void task_main_cb(void* args);
 
@@ -255,6 +195,8 @@ namespace dataCollection {
 
     RingBuffer<float, 100> running_velocity_ringbuf;
 
+    RingBuffer<float, 100> running_battery_ringbuf;
+
     RunningCounter sustained_accel_x_pos(25);
     RunningCounter sustained_accel_x_neg(25);
 
@@ -302,6 +244,11 @@ namespace dataCollection {
         apogee_reached = fmax(apogee_reached, alt);
         gforce_max = fmax(gforce_max, gforce);
 
+        if ( running_velocity_ringbuf.isFull() ) {
+            float _;
+            running_velocity_ringbuf.pop(_);
+        }
+
         // only record velocity above 15m to avoid landing changing stuff  
         if ( alt > 15.0 ) {
             running_velocity_ringbuf.push(velocity);
@@ -314,6 +261,25 @@ namespace dataCollection {
 
         landing_velocity = sum / running_velocity_ringbuf.size();
 
+    }
+
+    void update_battery() {
+        if ( running_battery_ringbuf.isFull() ) {
+            float _;
+            running_battery_ringbuf.pop(_);
+        }
+
+        uint16_t adc_val = adc_read();
+        float batt_voltage_raw = float(adc_val) * 3.3 * 3.f/(4096.f);
+        running_battery_ringbuf.push(batt_voltage_raw);
+
+        battery_voltage = 0;
+
+        for ( int i = 0; i < running_battery_ringbuf.size(); i++ ) {
+            battery_voltage += running_battery_ringbuf[i];
+        }
+
+        battery_voltage /= running_battery_ringbuf.size();
     }
 
     void start_transmission() {
@@ -418,12 +384,17 @@ int main()
     // Pre-flight pause to allow removal of test code in final flight configuration.
     // TODO:
     // Remove before flight
-    getchar();
+    // getchar();
     sleep_ms(100);
     
 	printf("Payload\n");
 
-	buzzer_off();
+    adc_init();
+    adc_gpio_init(29);
+    adc_select_input(3);
+
+    // buzzer_off();
+    buzzer_on();
 
     // Set and add main task to the scheduler with appropriate priority.
     task_main.priority = 2;
@@ -776,7 +747,7 @@ void task_main_cb(void* args) {
     if (stateControl::state == stateControl::STATE_LANDED && dataCollection::t_transmission_start == 0) {
         dataCollection::t_landing_unix = dataCollection::t_time_sync_unix + ((time_us_64() - dataCollection::t_last_time_sync) / 1000000);
         printf("Landing time: %llu\n", dataCollection::t_landing_unix);
-        dataCollection::battery_voltage = 3.3;
+        // dataCollection::battery_voltage = 3.3;
         dataCollection::landing_velocity = navigation::velocity;
         dataCollection::temperature = temp;
         dataCollection::y = navigation::y;
@@ -789,8 +760,8 @@ void task_main_cb(void* args) {
 
     // Debug: print current flight metrics for non-landed state.
     if (stateControl::state != stateControl::STATE_LANDED) {
-        printf("pos: %.2f, vel: %.2f, ax: %.2f, ay: %.2f, az: %.2f\n", 
-           navigation::altitude, navigation::velocity, navigation::ax, navigation::ay, navigation::az);
+        printf("pos: %.2f, vel: %.2f, ax: %.2f, ay: %.2f, az: %.2f, batt: %.2f\n", 
+           navigation::altitude, navigation::velocity, navigation::ax, navigation::ay, navigation::az, dataCollection::battery_voltage);
     } 
 
     if ( stateControl::state == stateControl::STATE_LANDED && tts_iter_num >= 10) {
@@ -800,6 +771,8 @@ void task_main_cb(void* args) {
 
     tts_iter_num++;
 
+    dataCollection::update_battery();
+
     // Log data
     if ( stateControl::state != stateControl::STATE_LANDED ) {
         // Log sensor data into a CSV file via datalog module.
@@ -808,6 +781,7 @@ void task_main_cb(void* args) {
         datalog::update_datalog_quat(navigation::qw, navigation::qx, navigation::qy, navigation::qz);
         datalog::update_datalog_baro(pres, temp, alt_raw);
         datalog::update_datalog_fusion(navigation::altitude, navigation::velocity);
+        datalog::update_datalog_batt(dataCollection::battery_voltage);
 
         // uint64_t t0 = time_us_64();
         datalog::update();

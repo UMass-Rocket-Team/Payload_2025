@@ -33,6 +33,8 @@ typedef struct {
     float fusion_altitude;
     float fusion_velocity;
 
+    float batt_voltage;
+
 } datalog_frame_t;
 
 const static size_t datalog_frame_sz = sizeof(datalog_frame_t);
@@ -47,5 +49,6 @@ void update_datalog_mag(const float x, const float y, const float z);
 void update_datalog_baro(const float pressure, const float temperature, const float altitude);
 void update_datalog_quat(const float w, const float x, const float y, const float z);
 void update_datalog_fusion(const float altitude, const float velocity);
+void update_datalog_batt(const float batt_voltage);
 
 } // namespace datalog

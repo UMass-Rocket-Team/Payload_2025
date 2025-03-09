@@ -4,7 +4,7 @@
 #include "SD.hpp"
 #include "pwmGeneric.hpp"
 #include "fifo.hpp"
-#include "EepromArray.hpp"
+// #include "EepromArray.hpp"
 #include "audio_files.h"
 
 extern "C" {
