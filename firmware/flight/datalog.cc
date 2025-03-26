@@ -10,7 +10,7 @@ const char* header = "timestamp,baro_pressure,baro_temperature,baro_altitude,"
                              "gyro_x,gyro_y,gyro_z,"
                              "mag_x,mag_y,mag_z,"
                              "quat_w,quat_x,quat_y,quat_z,"
-                             "fusion_altitude,fusion_velocity\n";
+                             "fusion_altitude,fusion_velocity, battery_voltage\n";
 
 static datalog_frame_t datalog_frame;
 
