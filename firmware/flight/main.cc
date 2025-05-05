@@ -67,7 +67,8 @@ namespace stateControl {
 
     void check_ld_accel(float ax, float ay, float az) {
         float mag = sqrt(ax*ax + ay*ay + az*az);
-        counter_launch_detect_accel.update(mag > 12.0);
+        // float mag = -ax;
+        counter_launch_detect_accel.update(mag > (9.816 * 3.5));
     }
 
     void check_landed_velocity(float vz) {
@@ -184,7 +185,7 @@ namespace navigation {
 namespace dataCollection {
 
     uint64_t t_last_time_sync = 0;
-    uint64_t t_time_sync_unix = 0;
+    uint64_t t_time_sync_unix = 29100;
 
     uint64_t t_landing_unix;
     float apogee_reached;
@@ -385,7 +386,7 @@ int main()
     // TODO:
     // Remove before flight
     // getchar();
-    sleep_ms(100);
+    sleep_ms(1000);
     
 	printf("Payload\n");
 
@@ -482,37 +483,54 @@ int main()
 
     printf("[OK]\n");
 
+    // while(1) {
+
+    //     uint8_t hour, minute, second;
+        
+    //     ret = ds1307_get_time(i2c0, &hour, &minute, &second);
+    //     if (ret != 0) {
+    //         printf("Failed to get time\n");
+    //         while(1) {
+    //             buzzer_beep_error(); // Exits system on persistent sensor failure.
+    //         }
+    //     }
+        
+    //     printf("Time: %02d:%02d:%02d\n", hour, minute, second);
+    //     sleep_ms(1000);
+
+    // }
+
     // SD card initialization. The SD card is used for logging flight data.
     printf("SD Card init...");
 
-    if (!sdCard.open()) {
-        printf("[FAILED]\n");
-        while(1) {
-            buzzer_beep_error();
-        }
-    } else {
-        printf("[OK]\n");
-    }
+    // if (!sdCard.open()) {
+    //     printf("[FAILED]\n");
+    //     while(1) {
+    //         buzzer_beep_error();
+    //     }
+    // } else {
+    //     printf("[OK]\n");
+    // }
 
-    std::vector<std::string> files = sdCard.listFiles("/");
+    // std::vector<std::string> files = sdCard.listFiles("/");
 
-    // Determine the next available log file index from SD card contents.
-    int file_index = 0;
+    // // Determine the next available log file index from SD card contents.
+    // int file_index = 0;
 
-    for (int i = 0; i < files.size(); i++) {
-        if (files[i].find("datalog") != std::string::npos) {
-            int idx = std::stoi(files[i].substr(7, files[i].size() - 11));
-            if (idx >= file_index) {
-                file_index = idx + 1;
-            }
-        }
-    }
+    // for (int i = 0; i < files.size(); i++) {
+    //     if (files[i].find("datalog") != std::string::npos) {
+    //         int idx = std::stoi(files[i].substr(7, files[i].size() - 11));
+    //         if (idx >= file_index) {
+    //             file_index = idx + 1;
+    //         }
+    //     }
+    // }
 
-    printf("Next file index: %d\n", file_index);
+    // printf("Next file index: %d\n", file_index);
 
-    datalog::set_filename(file_index);
+    // datalog::set_filename(file_index);
 
-    printf("Reading wave files...\n");
+    // printf("Reading wave files...\n");
 
     // Read wave files from the SD card for TTS operations.
 
@@ -593,15 +611,17 @@ int main()
     }
 
     // Signal successful initialization via auditory (buzzer) cues.
+    buzzer_on();
     buzzer_beep_ok();
 
-    buzzer_on();
     
     // Initialize data logging and TTS modules.
     datalog::init();
     TTS::init();
 
     printf("Entering main loop\n");
+
+    // stateControl::state = stateControl::STATE_LANDED;
 
     gpio_init(25);
     gpio_set_dir(25, GPIO_OUT);
@@ -612,6 +632,24 @@ int main()
         while(time_us_64() < task_main.next_run) {;}
     }
 
+}
+
+void buzzer_beep_non_blocking() {
+    static uint64_t last_toggle_time = 0;
+    static bool buzzer_state = false;
+
+    uint64_t current_time = time_us_64();
+
+    // Toggle the buzzer state every 10ms (50Hz)
+    if (current_time - last_toggle_time >= 250000) {
+        last_toggle_time = current_time;
+        buzzer_state = !buzzer_state;
+        if (buzzer_state) {
+            buzzer_tone(15, 800);
+        } else {
+            buzzer_disable(15);
+        }
+    }
 }
 
 int tts_iter_num = 0;
@@ -633,35 +671,35 @@ int tts_iter_num = 0;
  */
 void task_main_cb(void* args) {
 
-    if ( stateControl::state == stateControl::STATE_IDLE ) {
-        int c;
+    // if ( stateControl::state == stateControl::STATE_IDLE ) {
+    //     int c;
 
-        c = getchar_timeout_us(50);
-        if (c == PICO_ERROR_TIMEOUT) {
-            printf("Timeout\n");
-        } else {
+    //     c = getchar_timeout_us(50);
+    //     if (c == PICO_ERROR_TIMEOUT) {
+    //         printf("Timeout\n");
+    //     } else {
 
-            printf("Syncing time\n");
-            char time_str[33];
-            int i = 0;
-            while ( c != PICO_ERROR_TIMEOUT && c != '\n' && i < 32 ) {
-                time_str[i] = c;
-                i++;
-                c = getchar_timeout_us(5000);
-            }
+    //         printf("Syncing time\n");
+    //         char time_str[33];
+    //         int i = 0;
+    //         while ( c != PICO_ERROR_TIMEOUT && c != '\n' && i < 32 ) {
+    //             time_str[i] = c;
+    //             i++;
+    //             c = getchar_timeout_us(5000);
+    //         }
 
-            time_str[i] = '\0';
+    //         time_str[i] = '\0';
 
-            printf("Time string: %s\n", time_str);
+    //         printf("Time string: %s\n", time_str);
             
-            int64_t time_val = atoll(time_str);
-            printf("Time value: %lld\n", time_val);
+    //         int64_t time_val = atoll(time_str);
+    //         printf("Time value: %lld\n", time_val);
 
-            dataCollection::t_last_time_sync = time_us_64();
-            dataCollection::t_time_sync_unix = time_val;
+    //         dataCollection::t_last_time_sync = time_us_64();
+    //         dataCollection::t_time_sync_unix = time_val;
 
-        }
-    }
+    //     }
+    // }
 
     gpio_put(25, 1);
 
@@ -721,15 +759,18 @@ void task_main_cb(void* args) {
 
     switch(stateControl::state) {
         case stateControl::STATE_IDLE:
+            buzzer_on();
+            buzzer_beep_non_blocking();
             stateControl::check_ld_accel(navigation::ax, navigation::ay, navigation::az);
             break;
         case stateControl::STATE_LAUNCH:
+            buzzer_disable(15);
             buzzer_off();
+            
             stateControl::check_landed_accel(navigation::ax, navigation::ay, navigation::az);
             stateControl::check_landed_orientation(navigation::rx, navigation::ry, navigation::rz);
             break;
         case stateControl::STATE_LANDED:
-            buzzer_off();
             break;
     }
 
@@ -764,7 +805,7 @@ void task_main_cb(void* args) {
            navigation::altitude, navigation::velocity, navigation::ax, navigation::ay, navigation::az, dataCollection::battery_voltage);
     } 
 
-    if ( stateControl::state == stateControl::STATE_LANDED && tts_iter_num >= 10) {
+    if ( stateControl::state == stateControl::STATE_LANDED && tts_iter_num >= 1) {
         TTS::update(NULL);
         tts_iter_num = 0;
     }

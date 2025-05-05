@@ -59,22 +59,22 @@ void update_datalog_batt(const float batt_voltage) {
 
 void init() {
 
-    TextFile datalog_file;
+    // TextFile datalog_file;
 
-    if (!datalog_file.open(datalog_fname, FA_OPEN_APPEND | FA_WRITE | FA_CREATE_NEW)) {
-        printf("Failed to open datalog file\n");
-        return;
-    } else {
-        printf("Opened datalog file\n");
-    }
+    // if (!datalog_file.open(datalog_fname, FA_OPEN_APPEND | FA_WRITE | FA_CREATE_NEW)) {
+    //     printf("Failed to open datalog file\n");
+    //     return;
+    // } else {
+    //     printf("Opened datalog file\n");
+    // }
 
-    if (!datalog_file.writeLine(header)) {
-        printf("Failed to write header to datalog file\n");
-    }
+    // if (!datalog_file.writeLine(header)) {
+    //     printf("Failed to write header to datalog file\n");
+    // }
 
-    if (!datalog_file.close()) {
-        printf("Failed to close datalog file\n");
-    }
+    // if (!datalog_file.close()) {
+    //     printf("Failed to close datalog file\n");
+    // }
 
 }
 
@@ -84,46 +84,46 @@ void set_filename(int idx) {
 
 void update() {
 
-    datalog_frame.timestamp = to_us_since_boot(get_absolute_time());
+    // datalog_frame.timestamp = to_us_since_boot(get_absolute_time());
 
-    int bytes_enc = sprintf(datalog_strbuf, "%lu,%.6f,%.6f,%.6f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n",
-            datalog_frame.timestamp,
-            datalog_frame.baro_pressure,
-            datalog_frame.baro_temperature,
-            datalog_frame.baro_altitude,
-            datalog_frame.accel_x,
-            datalog_frame.accel_y,
-            datalog_frame.accel_z,
-            datalog_frame.gyro_x,
-            datalog_frame.gyro_y,
-            datalog_frame.gyro_z,
-            datalog_frame.mag_x,
-            datalog_frame.mag_y,
-            datalog_frame.mag_z,
-            datalog_frame.quat_w,
-            datalog_frame.quat_x,
-            datalog_frame.quat_y,
-            datalog_frame.quat_z,
-            datalog_frame.fusion_altitude,
-            datalog_frame.fusion_velocity,
-            datalog_frame.batt_voltage);
+    // int bytes_enc = sprintf(datalog_strbuf, "%lu,%.6f,%.6f,%.6f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n",
+    //         datalog_frame.timestamp,
+    //         datalog_frame.baro_pressure,
+    //         datalog_frame.baro_temperature,
+    //         datalog_frame.baro_altitude,
+    //         datalog_frame.accel_x,
+    //         datalog_frame.accel_y,
+    //         datalog_frame.accel_z,
+    //         datalog_frame.gyro_x,
+    //         datalog_frame.gyro_y,
+    //         datalog_frame.gyro_z,
+    //         datalog_frame.mag_x,
+    //         datalog_frame.mag_y,
+    //         datalog_frame.mag_z,
+    //         datalog_frame.quat_w,
+    //         datalog_frame.quat_x,
+    //         datalog_frame.quat_y,
+    //         datalog_frame.quat_z,
+    //         datalog_frame.fusion_altitude,
+    //         datalog_frame.fusion_velocity,
+    //         datalog_frame.batt_voltage);
 
-    // printf("encoded %d bytes\n", bytes_enc);
+    // // printf("encoded %d bytes\n", bytes_enc);
 
-    TextFile datalog_file;
+    // TextFile datalog_file;
 
-    if (!datalog_file.open(datalog_fname, FA_OPEN_APPEND | FA_WRITE | FA_OPEN_ALWAYS)) {
-        printf("Failed to open %s\n", datalog_fname);
-        return;
-    }
+    // if (!datalog_file.open(datalog_fname, FA_OPEN_APPEND | FA_WRITE | FA_OPEN_ALWAYS)) {
+    //     printf("Failed to open %s\n", datalog_fname);
+    //     return;
+    // }
 
-    if (!datalog_file.writeLine(datalog_strbuf)) {
-        printf("Failed to write to %s\n", datalog_fname);
-    }
+    // if (!datalog_file.writeLine(datalog_strbuf)) {
+    //     printf("Failed to write to %s\n", datalog_fname);
+    // }
 
-    if (!datalog_file.close()) {
-        printf("Failed to close %s\n", datalog_fname);
-    }
+    // if (!datalog_file.close()) {
+    //     printf("Failed to close %s\n", datalog_fname);
+    // }
 
 }
 

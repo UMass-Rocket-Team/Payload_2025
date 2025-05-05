@@ -48,16 +48,16 @@ void buzzer_beep_ok() {
 
 void task_buzz_cb(void* args) {
 
-    if (!buzzer_en) {
-        task_buzz.next_run = time_us_64() + 1000000;
-        return;
-    }
+    // if (!buzzer_en) {
+    //     task_buzz.next_run = time_us_64() + 1000000;
+    //     return;
+    // }
 
-    if (buzzer_error) {
-        while(1) { buzzer_beep_error(); }
-    } else {
-        buzzer_beep_ok();
-        task_buzz.next_run = time_us_64() + 30000000;
-    }
+    // if (buzzer_error) {
+    //     while(1) { buzzer_beep_error(); }
+    // } else {
+    //     buzzer_beep_ok();
+    //     task_buzz.next_run = time_us_64() + 30000000;
+    // }
 
 }
